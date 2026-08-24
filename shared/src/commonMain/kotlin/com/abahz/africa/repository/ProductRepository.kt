@@ -16,14 +16,6 @@ class ProductRepository(private val supabaseClient: SupabaseClient) {
         supabaseClient.from(table).select().decodeList<Products>()
     }
 
-    suspend fun getProductsByShop(shopId: String): List<Products> = withContext(Dispatchers.Default) {
-        supabaseClient.from(table).select {
-            filter {
-                eq("shopid", shopId)
-            }
-        }.decodeList<Products>()
-    }
-
     suspend fun insertProduct(product: Products) = withContext(Dispatchers.Default) {
         supabaseClient.from(table).insert(product)
     }

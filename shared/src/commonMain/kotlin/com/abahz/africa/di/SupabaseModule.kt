@@ -1,13 +1,11 @@
 package com.abahz.africa.di
 
 import com.abahz.africa.repository.CartRepository
-import com.abahz.africa.repository.CategoryRepository
 import com.abahz.africa.repository.CustomerRepository
 import com.abahz.africa.repository.OrderRepository
 import com.abahz.africa.repository.ProductRepository
 import com.abahz.africa.repository.ShopRepository
 import com.abahz.africa.viewmodel.CartViewModel
-import com.abahz.africa.viewmodel.CategoryViewModel
 import com.abahz.africa.viewmodel.CustomerViewModel
 import com.abahz.africa.viewmodel.OrderViewModel
 import com.abahz.africa.viewmodel.ProductViewModel
@@ -49,10 +47,6 @@ val supabaseModule = module {
     // Products
     singleOf(::ProductRepository)
     viewModelOf(::ProductViewModel)
-
-    // Categories
-    singleOf(::CategoryRepository)
-    viewModelOf(::CategoryViewModel)
 
     // Orders
     singleOf(::OrderRepository)

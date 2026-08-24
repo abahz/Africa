@@ -24,11 +24,11 @@ class CartViewModel(private val repository: CartRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun loadCarts(shopId: String) {
+    fun loadCarts() {
         viewModelScope.launch {
             _loading.value = true
             try {
-                _carts.value = repository.getCartsByShop(shopId)
+                _carts.value = repository.getCarts()
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message
@@ -56,7 +56,7 @@ class CartViewModel(private val repository: CartRepository) : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.insertCart(cart)
-                loadCarts(cart.shopid)
+                loadCarts()
             } catch (e: Exception) {
                 _error.value = e.message
             }

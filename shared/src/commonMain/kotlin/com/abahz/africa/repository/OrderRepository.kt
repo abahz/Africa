@@ -13,12 +13,8 @@ class OrderRepository(private val supabaseClient: SupabaseClient) {
     private val orderItemsTable = "order_items"
 
     // Orders
-    suspend fun getOrdersByShop(shopId: String): List<Orders> = withContext(Dispatchers.Default) {
-        supabaseClient.from(ordersTable).select {
-            filter {
-                eq("shopid", shopId)
-            }
-        }.decodeList<Orders>()
+    suspend fun getOrders(): List<Orders> = withContext(Dispatchers.Default) {
+        supabaseClient.from(ordersTable).select().decodeList<Orders>()
     }
 
     suspend fun insertOrder(order: Orders): Orders = withContext(Dispatchers.Default) {

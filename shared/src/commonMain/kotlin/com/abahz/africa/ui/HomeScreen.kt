@@ -4,71 +4,38 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.abahz.africa.model.Customer
 import com.abahz.africa.model.ProductType
 import com.abahz.africa.model.Products
+import com.abahz.africa.viewmodel.CustomerViewModel
 import com.abahz.africa.viewmodel.ProductViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopBar(onCartClick: () -> Unit) {
+fun HomeTopBar(onCartClick: () -> Unit, onProfileClick: () -> Unit) {
     TopAppBar(
         title = {
             Row(
@@ -113,7 +80,7 @@ fun HomeTopBar(onCartClick: () -> Unit) {
             IconButton(onClick = onCartClick) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = "Cart", tint = Color.Black)
             }
-            IconButton(onClick = {}) {
+            IconButton(onClick = onProfileClick) {
                 Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.Black)
             }
             Spacer(modifier = Modifier.width(24.dp))
@@ -124,12 +91,18 @@ fun HomeTopBar(onCartClick: () -> Unit) {
 
 @Composable
 fun HomeScreen(
-    productViewModel: ProductViewModel = koinViewModel()
+    productViewModel: ProductViewModel = koinViewModel(),
+    customerViewModel: CustomerViewModel = koinViewModel()
 ) {
     val products by productViewModel.products.collectAsState()
     val loading by productViewModel.loading.collectAsState()
     var selectedCategory by remember { mutableStateOf(ProductType.PIZZA) }
     var isCartOpen by remember { mutableStateOf(false) }
+
+    // Customer Logic
+    var showCustomerDialog by remember { mutableStateOf(false) }
+    var currentCustomer by remember { mutableStateOf<Customer?>(null) }
+    var pendingProduct by remember { mutableStateOf<Products?>(null) }
 
     val categories = listOf(ProductType.PIZZA, ProductType.TACOS, ProductType.DESSERT, ProductType.BOIS)
 
@@ -139,7 +112,10 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            HomeTopBar(onCartClick = { isCartOpen = !isCartOpen })
+            HomeTopBar(
+                onCartClick = { isCartOpen = !isCartOpen },
+                onProfileClick = { showCustomerDialog = true }
+            )
         }
     ) { padding ->
         Row(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -219,7 +195,17 @@ fun HomeScreen(
                                 ) {
                                     rowProducts.forEach { product ->
                                         Box(modifier = Modifier.weight(1f)) {
-                                            ProductCard(product, onAddClick = { isCartOpen = true })
+                                            ProductCard(
+                                                product = product,
+                                                onAddClick = {
+                                                    if (currentCustomer == null) {
+                                                        pendingProduct = product
+                                                        showCustomerDialog = true
+                                                    } else {
+                                                        isCartOpen = true
+                                                    }
+                                                }
+                                            )
                                         }
                                     }
                                     repeat(4 - rowProducts.size) {
@@ -240,6 +226,78 @@ fun HomeScreen(
             }
         }
     }
+
+    if (showCustomerDialog) {
+        CustomerRegistrationDialog(
+            initialCustomer = currentCustomer,
+            onDismiss = { showCustomerDialog = false },
+            onLoginOrRegister = { phone, password ->
+                customerViewModel.signInOrRegister(phone, password) { customer ->
+                    if (customer != null) {
+                        currentCustomer = customer
+                        showCustomerDialog = false
+                        if (pendingProduct != null) {
+                            isCartOpen = true
+                            pendingProduct = null
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun CustomerRegistrationDialog(
+    initialCustomer: Customer? = null,
+    onDismiss: () -> Unit,
+    onLoginOrRegister: (String, String) -> Unit
+) {
+    var phone by remember { mutableStateOf(initialCustomer?.phone ?: "") }
+    var password by remember { mutableStateOf(initialCustomer?.password ?: "") }
+
+    val isAlreadyLoggedIn = initialCustomer != null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isAlreadyLoggedIn) "Mon Compte" else "Connexion / Inscription", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (isAlreadyLoggedIn) {
+                    Text("Vous êtes connecté avec le numéro : ${initialCustomer?.phone}", fontSize = 14.sp)
+                } else {
+                    Text("Entrez votre numéro et mot de passe pour commander.", fontSize = 14.sp, color = Color.Gray)
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Mot de passe") },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (!isAlreadyLoggedIn) {
+                Button(
+                    onClick = {
+                        if (phone.isNotBlank() && password.isNotBlank()) {
+                            onLoginOrRegister(phone, password)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                ) {
+                    Text("Valider")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isAlreadyLoggedIn) "Fermer" else "Annuler", color = Color.Gray)
+            }
+        }
+    )
 }
 
 @Composable
@@ -263,17 +321,9 @@ fun CartSidebar(onClose: () -> Unit, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Cart Items
+            // Cart Items List Placeholder
             Box(modifier = Modifier.weight(1f)) {
-                LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Sample Item
-                    item {
-                        CartItemRow("Risotto aux Truffes", "Creamy Arborio rice, fresh black truffles...", "28.00 €", "2")
-                    }
-                    item {
-                        CartItemRow("Magret de Canard", "Pan-seared duck breast, cherry reduction...", "34.00 €", "1")
-                    }
-                }
+                Text("Le panier est vide.", modifier = Modifier.align(Alignment.Center), color = Color.Gray)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -288,40 +338,9 @@ fun CartSidebar(onClose: () -> Unit, modifier: Modifier = Modifier) {
                     Text("Order Summary", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFE9ECEF)),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(Color.White).padding(8.dp), contentAlignment = Alignment.Center) {
-                            Text("Livraison", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
-                        }
-                        Box(modifier = Modifier.weight(1f).fillMaxHeight().padding(8.dp), contentAlignment = Alignment.Center) {
-                            Text("À Emporter", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Delivery Address", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    OutlinedTextField(
-                        value = "123 Rue de la Gastronomie, Paris",
-                        onValueChange = {},
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    SummaryRow("Subtotal", "90.00 €")
-                    SummaryRow("Delivery Fee", "5.00 €")
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color.LightGray)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("95.00 €", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                        Text("0 Fc", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -335,65 +354,12 @@ fun CartSidebar(onClose: () -> Unit, modifier: Modifier = Modifier) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
-                    
-                    Text(
-                        "Taxes and fees calculated at checkout.",
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                        textAlign = TextAlign.Center,
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
                 }
             }
         }
     }
 }
 
-@Composable
-fun CartItemRow(name: String, desc: String, price: String, qty: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)).background(Color.LightGray))
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(price, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFFD32F2F))
-                }
-                Text(desc, fontSize = 12.sp, color = Color.Gray, maxLines = 1)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.border(1.dp, Color.LightGray, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("−", modifier = Modifier.clickable { })
-                        Text(qty, modifier = Modifier.padding(horizontal = 16.dp), fontWeight = FontWeight.Bold)
-                        Text("+", modifier = Modifier.clickable { })
-                    }
-                    
-                    Row(modifier = Modifier.clickable { }, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFFD32F2F))
-                        Text(" REMOVE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SummaryRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Color.Gray, fontSize = 14.sp)
-        Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-    }
-}
 @Composable
 fun ProductCard(product: Products, onAddClick: () -> Unit = {}) {
     Card(
@@ -509,20 +475,10 @@ fun HomeFooter() {
             )
             
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                FooterLink("Privacy Policy")
-                FooterLink("Terms of Service")
-                FooterLink("Contact Support")
+                Text("Privacy Policy", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, modifier = Modifier.clickable { })
+                Text("Terms of Service", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, modifier = Modifier.clickable { })
+                Text("Contact Support", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, modifier = Modifier.clickable { })
             }
         }
     }
-}
-
-@Composable
-fun FooterLink(text: String) {
-    Text(
-        text = text,
-        color = Color.White.copy(alpha = 0.7f),
-        fontSize = 14.sp,
-        modifier = Modifier.clickable { }
-    )
 }

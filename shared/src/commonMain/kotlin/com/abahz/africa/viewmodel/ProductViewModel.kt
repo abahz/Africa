@@ -34,32 +34,18 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         }
     }
 
-    fun loadProductsByShop(shopId: String) {
-        viewModelScope.launch {
-            _loading.value = true
-            try {
-                _products.value = repository.getProductsByShop(shopId)
-                _error.value = null
-            } catch (e: Exception) {
-                _error.value = e.message
-            } finally {
-                _loading.value = false
-            }
-        }
-    }
-
-    fun addProduct(product: Products, imageBytes: ByteArray? = null, refreshByShop: String? = null) {
+    fun addProduct(product: Products, imageBytes: ByteArray? = null) {
         viewModelScope.launch {
             _loading.value = true
             try {
                 var finalProduct = product
                 if (imageBytes != null) {
-                    val fileName = "${product.shopid}_${product.name}_${product.created}.jpg"
+                    val fileName = "${product.name}_${product.created}.jpg"
                     val imageUrl = repository.uploadImage(imageBytes, fileName)
                     finalProduct = product.copy(image = imageUrl)
                 }
                 repository.insertProduct(finalProduct)
-                if (refreshByShop != null) loadProductsByShop(refreshByShop) else loadProducts()
+                loadProducts()
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message
@@ -69,18 +55,18 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         }
     }
 
-    fun updateProduct(product: Products, imageBytes: ByteArray? = null, refreshByShop: String? = null) {
+    fun updateProduct(product: Products, imageBytes: ByteArray? = null) {
         viewModelScope.launch {
             _loading.value = true
             try {
                 var finalProduct = product
                 if (imageBytes != null) {
-                    val fileName = "${product.shopid}_${product.name}_${product.created}.jpg"
+                    val fileName = "${product.name}_${product.created}.jpg"
                     val imageUrl = repository.uploadImage(imageBytes, fileName)
                     finalProduct = product.copy(image = imageUrl)
                 }
                 repository.updateProduct(finalProduct)
-                if (refreshByShop != null) loadProductsByShop(refreshByShop) else loadProducts()
+                loadProducts()
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message
@@ -90,17 +76,16 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         }
     }
 
-    fun deleteProduct(product: Products, refreshByShop: String? = null) {
+    fun deleteProduct(product: Products) {
         viewModelScope.launch {
             _loading.value = true
             try {
-                // Optionally delete image from storage if needed
                  if (product.image.isNotEmpty()) {
                     val fileName = product.image.substringAfterLast("/")
                     repository.deleteImage(fileName)
                  }
                 repository.deleteProduct(product.id)
-                if (refreshByShop != null) loadProductsByShop(refreshByShop) else loadProducts()
+                loadProducts()
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message

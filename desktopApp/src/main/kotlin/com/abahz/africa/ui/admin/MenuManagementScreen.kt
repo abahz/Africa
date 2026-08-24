@@ -1,14 +1,11 @@
 package com.abahz.africa.ui.admin
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,23 +20,20 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.abahz.africa.model.Products
 import com.abahz.africa.viewmodel.ProductViewModel
-import com.abahz.africa.viewmodel.ShopViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun MenuManagementScreen(
-    productViewModel: ProductViewModel = koinViewModel(),
-    shopViewModel: ShopViewModel = koinViewModel()
+    productViewModel: ProductViewModel = koinViewModel()
 ) {
     val products by productViewModel.products.collectAsState()
     val loading by productViewModel.loading.collectAsState()
-    val currentShop by shopViewModel.currentShop.collectAsState()
     
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Tous") }
 
-    LaunchedEffect(currentShop) {
-        currentShop?.id?.let { productViewModel.loadProductsByShop(it) }
+    LaunchedEffect(Unit) {
+        productViewModel.loadProducts()
     }
 
     Column(
@@ -78,15 +72,6 @@ fun MenuManagementScreen(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                    border = ButtonDefaults.outlinedButtonBorder,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Filtrer")
-                }
             }
         }
 
@@ -94,7 +79,7 @@ fun MenuManagementScreen(
 
         // Categories
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val categories = listOf("Tous", "Plats", "Boissons", "Desserts")
+            val categories = listOf("Tous", "Pizza", "Tacos", "Dessert", "Boissons")
             categories.forEach { category ->
                 FilterChip(
                     selected = selectedCategory == category,
@@ -124,7 +109,7 @@ fun MenuManagementScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("PLAT", modifier = Modifier.weight(3f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Text("CATEGORIE", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text("TYPE", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Text("PRIX", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Text("DISPONIBILITE", modifier = Modifier.weight(1.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Text("ACTIONS", modifier = Modifier.weight(1.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
@@ -145,7 +130,7 @@ fun MenuManagementScreen(
                             MenuRow(
                                 product = product,
                                 onDelete = {
-                                    productViewModel.deleteProduct(product, refreshByShop = currentShop?.id)
+                                    productViewModel.deleteProduct(product)
                                 }
                             )
                         }
@@ -183,7 +168,7 @@ fun MenuRow(product: Products, onDelete: () -> Unit) {
                     Text(text = product.desc ?: "", fontSize = 12.sp, color = Color.Gray, maxLines = 1)
                 }
             }
-            Text(text = product.category, modifier = Modifier.weight(1f), fontSize = 14.sp)
+            Text(text = product.type, modifier = Modifier.weight(1f), fontSize = 14.sp)
             Text(text = "${product.price} Fc", modifier = Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
             
             Box(

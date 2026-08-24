@@ -79,10 +79,9 @@ fun AdminScreen(
         AddProductDialog(
             onDismiss = { showAddProductDialog = false },
             onAdd = { product, imageBytes ->
-                productViewModel.addProduct(product, imageBytes, refreshByShop = currentShop?.id)
+                productViewModel.addProduct(product, imageBytes)
                 showAddProductDialog = false
-            },
-            shopId = currentShop?.id ?: ""
+            }
         )
     }
 }
@@ -213,14 +212,12 @@ fun PlaceholderScreen(title: String) {
 @Composable
 fun AddProductDialog(
     onDismiss: () -> Unit,
-    onAdd: (Products, ByteArray?) -> Unit,
-    shopId: String
+    onAdd: (Products, ByteArray?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var qty by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
     var type by remember { mutableStateOf(ProductType.BOIS) }
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var isTypeExpanded by remember { mutableStateOf(false) }
@@ -301,7 +298,6 @@ fun AddProductDialog(
 
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Prix") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = qty, onValueChange = { qty = it }, label = { Text("Quantité") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Catégorie") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -312,10 +308,8 @@ fun AddProductDialog(
                         desc = desc,
                         price = price.toLongOrNull() ?: 0,
                         qty = qty.toDoubleOrNull() ?: 0.0,
-                        category = category,
                         type = type,
-                        shopid = shopId,
-                        created = System.currentTimeMillis()
+                        created = 0L // Simple timestamp logic handled elsewhere
                     )
                     onAdd(product, imageBytes)
                 },

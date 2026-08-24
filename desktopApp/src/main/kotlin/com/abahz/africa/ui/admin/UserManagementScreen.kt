@@ -22,22 +22,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abahz.africa.model.Customer
 import com.abahz.africa.viewmodel.CustomerViewModel
-import com.abahz.africa.viewmodel.ShopViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun UserManagementScreen(
-    customerViewModel: CustomerViewModel = koinViewModel(),
-    shopViewModel: ShopViewModel = koinViewModel()
+    customerViewModel: CustomerViewModel = koinViewModel()
 ) {
-    val currentShop by shopViewModel.currentShop.collectAsState()
     val customers by customerViewModel.customers.collectAsState()
     val loading by customerViewModel.loading.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
 
-    LaunchedEffect(currentShop) {
-        currentShop?.id?.let { customerViewModel.loadCustomers(it) }
+    LaunchedEffect(Unit) {
+        customerViewModel.loadCustomers()
     }
 
     Column(
@@ -60,7 +57,7 @@ fun UserManagementScreen(
                     color = Color(0xFF1A1A1A)
                 )
                 Text(
-                    text = "View and manage customer accounts, roles, and access statuses.",
+                    text = "View and manage customer accounts.",
                     fontSize = 14.sp,
                     color = Color.Gray
                 )
@@ -82,21 +79,6 @@ fun UserManagementScreen(
                     ),
                     singleLine = true
                 )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Filter Button
-                OutlinedButton(
-                    onClick = { },
-                    modifier = Modifier.height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
-                ) {
-                    Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Filter")
-                }
             }
         }
 
@@ -119,12 +101,11 @@ fun UserManagementScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp)) {
-                        items(customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.email.contains(searchQuery, ignoreCase = true) }) { customer ->
+                        items(customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery, ignoreCase = true) }) { customer ->
                             UserRow(
                                 customer = customer,
-                                onActionClick = {
-                                    val newStatus = if (customer.status == "Active") "Blocked" else "Active"
-                                    customerViewModel.updateCustomer(customer.copy(status = newStatus))
+                                onDelete = {
+                                    customerViewModel.deleteCustomer(customer.id)
                                 }
                             )
                             HorizontalDivider(color = Color(0xFFF5F5F5), modifier = Modifier.padding(horizontal = 16.dp))
@@ -149,9 +130,8 @@ fun TableHeader() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         HeaderText("NAME", Modifier.weight(1.5f))
-        HeaderText("EMAIL", Modifier.weight(2f))
-        HeaderText("ROLE", Modifier.weight(1f))
-        HeaderText("STATUS", Modifier.weight(1f))
+        HeaderText("PHONE", Modifier.weight(2f))
+        HeaderText("ADDRESS", Modifier.weight(2f))
         HeaderText("ACTIONS", Modifier.weight(1f))
     }
 }
@@ -168,7 +148,7 @@ fun HeaderText(text: String, modifier: Modifier) {
 }
 
 @Composable
-fun UserRow(customer: Customer, onActionClick: () -> Unit) {
+fun UserRow(customer: Customer, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -185,56 +165,26 @@ fun UserRow(customer: Customer, onActionClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = customer.name.take(2).uppercase(),
+                    text = customer.name.takeIf { it.isNotEmpty() }?.take(2)?.uppercase() ?: "??",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Gray
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = customer.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(text = customer.name.takeIf { it.isNotEmpty() } ?: "Inconnu", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
 
-        // Email
-        Text(text = customer.email, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
+        // Phone
+        Text(text = customer.phone, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
 
-        // Role
-        Text(text = customer.role, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(1f))
-
-        // Status Tag
-        Box(modifier = Modifier.weight(1f)) {
-            val bgColor = if (customer.status == "Active") Color(0xFFE3F2FD) else Color(0xFFF8D7DA)
-            val textColor = if (customer.status == "Active") Color(0xFF0D47A1) else Color(0xFF721C24)
-
-            Surface(
-                color = bgColor,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = customer.status,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
+        // Address
+        Text(text = customer.address, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
 
         // Action Button
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            OutlinedButton(
-                onClick = onActionClick,
-                modifier = Modifier.height(32.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp),
-                shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, Color(0xFFE0E0E0))
-            ) {
-                Text(
-                    text = if (customer.status == "Active") "Block" else "Unblock",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
+            IconButton(onClick = onDelete, modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFFFFEBEE))) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
             }
         }
     }

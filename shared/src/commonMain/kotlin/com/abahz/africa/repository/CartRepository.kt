@@ -13,12 +13,8 @@ class CartRepository(private val supabaseClient: SupabaseClient) {
     private val cartItemsTable = "cart_items"
 
     // Carts
-    suspend fun getCartsByShop(shopId: String): List<Carts> = withContext(Dispatchers.Default) {
-        supabaseClient.from(cartsTable).select {
-            filter {
-                eq("shopid", shopId)
-            }
-        }.decodeList<Carts>()
+    suspend fun getCarts(): List<Carts> = withContext(Dispatchers.Default) {
+        supabaseClient.from(cartsTable).select().decodeList<Carts>()
     }
 
     suspend fun insertCart(cart: Carts): Carts = withContext(Dispatchers.Default) {

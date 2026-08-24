@@ -11,14 +11,11 @@ data class Shop(
     val owner: String = "",
     val admin: String = "",
     val rccm: String = "",
-    val idNat: String = "",
+    @Transient val idNat: String = "",
     val address: String = "",
     val created: Long = 0,
     val updated: Long = 0
 )
-
-
-
 
 @Serializable
 data class Products(
@@ -28,11 +25,7 @@ data class Products(
     val desc: String? = null,
     val type: String = ProductType.BOIS,
     val price: Long = 0,
-    val coast: Long = 0,
     val qty: Double = 0.0,
-    val category: String = "",
-    val unity: String = "",
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0
 )
@@ -45,20 +38,10 @@ object ProductType {
 }
 
 @Serializable
-data class Category(
-    val id: String = "",
-    val name: String = "",
-    val shopid: String = "",
-    val created: Long = 0,
-    val updated: Long = 0
-)
-
-@Serializable
 data class Carts(
     val id: String = "",
     val pid: String = "",
     val qty: Double = 0.0,
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0,
 )
@@ -68,7 +51,6 @@ data class CartItem(
     val id: String = "",
     val pid: String = "",
     val cid: String = "",
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0,
 )
@@ -79,7 +61,6 @@ data class Orders(
     val fid: Int = 0,
     val customer: String = "",
     val total: Long = 0,
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0
 )
@@ -90,7 +71,6 @@ data class OrderItem(
     val pid: String = "",
     val oid: String = "",
     val qty: String = "",
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0
 )
@@ -99,13 +79,9 @@ data class OrderItem(
 data class Customer(
     val id: String = "",
     val name: String = "",
-    val email: String = "",
-    val role: String = "Customer",
-    val status: String = "Active",
     val phone: String = "",
+    val password: String = "",
     val address: String = "",
-    val notes: Int = 0,
-    val shopid: String = "",
     val created: Long = 0,
     val updated: Long = 0
 )

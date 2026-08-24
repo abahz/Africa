@@ -24,11 +24,11 @@ class OrderViewModel(private val repository: OrderRepository) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun loadOrders(shopId: String) {
+    fun loadOrders() {
         viewModelScope.launch {
             _loading.value = true
             try {
-                _orders.value = repository.getOrdersByShop(shopId)
+                _orders.value = repository.getOrders()
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message
@@ -59,7 +59,7 @@ class OrderViewModel(private val repository: OrderRepository) : ViewModel() {
                 val createdOrder = repository.insertOrder(order)
                 val itemsWithOrderId = items.map { it.copy(oid = createdOrder.id.toString()) }
                 repository.insertOrderItems(itemsWithOrderId)
-                loadOrders(order.shopid)
+                loadOrders()
             } catch (e: Exception) {
                 _error.value = e.message
             } finally {

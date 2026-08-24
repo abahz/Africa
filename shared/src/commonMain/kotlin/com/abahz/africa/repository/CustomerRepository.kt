@@ -10,12 +10,8 @@ class CustomerRepository(private val supabaseClient: SupabaseClient) {
 
     private val table = "customer"
 
-    suspend fun getCustomersByShop(shopId: String): List<Customer> = withContext(Dispatchers.Default) {
-        supabaseClient.from(table).select {
-            filter {
-                eq("shopid", shopId)
-            }
-        }.decodeList<Customer>()
+    suspend fun getCustomers(): List<Customer> = withContext(Dispatchers.Default) {
+        supabaseClient.from(table).select().decodeList<Customer>()
     }
 
     suspend fun insertCustomer(customer: Customer) = withContext(Dispatchers.Default) {
@@ -36,5 +32,13 @@ class CustomerRepository(private val supabaseClient: SupabaseClient) {
                 eq("id", customerId)
             }
         }
+    }
+
+    suspend fun getCustomerByPhone(phone: String): Customer? = withContext(Dispatchers.Default) {
+        supabaseClient.from(table).select {
+            filter {
+                eq("phone", phone)
+            }
+        }.decodeSingleOrNull<Customer>()
     }
 }
