@@ -767,7 +767,7 @@ fun HomeFooter(isMobile: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF212529))
-            .padding(vertical = if (isMobile) 40.dp else 60.dp, horizontal = if (isMobile) 24.dp else 60.dp)
+            .padding(vertical = if (isMobile) 16.dp else 24.dp, horizontal = if (isMobile) 24.dp else 60.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
