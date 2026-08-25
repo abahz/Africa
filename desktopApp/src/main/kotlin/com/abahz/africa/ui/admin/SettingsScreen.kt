@@ -34,7 +34,7 @@ fun SettingsScreen(
     LaunchedEffect(currentShop) {
         currentShop?.let {
             shopName = it.name
-            address = it.address
+            address = it.address ?: ""
             phone = it.phone
         }
     }

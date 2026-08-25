@@ -64,6 +64,13 @@ fun UserManagementScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Refresh Button
+                IconButton(onClick = { customerViewModel.loadCustomers() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFFD32F2F))
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
                 // Search Field
                 OutlinedTextField(
                     value = searchQuery,
@@ -101,11 +108,11 @@ fun UserManagementScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp)) {
-                        items(customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery, ignoreCase = true) }) { customer ->
+                        items(customers.filter { it.name?.contains(searchQuery, ignoreCase = true) == true || it.phone.contains(searchQuery, ignoreCase = true) }) { customer ->
                             UserRow(
                                 customer = customer,
                                 onDelete = {
-                                    customerViewModel.deleteCustomer(customer.id)
+                                    customer.id?.let { customerViewModel.deleteCustomer(it) }
                                 }
                             )
                             HorizontalDivider(color = Color(0xFFF5F5F5), modifier = Modifier.padding(horizontal = 16.dp))
@@ -165,21 +172,21 @@ fun UserRow(customer: Customer, onDelete: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = customer.name.takeIf { it.isNotEmpty() }?.take(2)?.uppercase() ?: "??",
+                    text = customer.name?.takeIf { it.isNotEmpty() }?.take(2)?.uppercase() ?: "??",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Gray
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = customer.name.takeIf { it.isNotEmpty() } ?: "Inconnu", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(text = customer.name ?: "Inconnu", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
 
         // Phone
         Text(text = customer.phone, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
 
         // Address
-        Text(text = customer.address, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
+        Text(text = customer.address ?: "Non spécifiée", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.weight(2f))
 
         // Action Button
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {

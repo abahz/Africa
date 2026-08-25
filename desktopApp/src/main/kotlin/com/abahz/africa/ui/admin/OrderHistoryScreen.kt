@@ -96,9 +96,10 @@ fun OrderHistoryScreen(
 
                     OrderCard(
                         id = "#ORD-${order.id}",
+                        customer = order.customer ?: "Client inconnu",
                         date = dateStr,
                         type = if (order.fid > 0) "Livraison" else "À emporter",
-                        status = "Reçu", // Real status logic could be added to Model later
+                        status = "Reçu",
                         amount = "${order.total} Fc",
                         statusBg = Color(0xFFE8F5E9),
                         statusTxt = Color(0xFF2E7D32),
@@ -113,6 +114,7 @@ fun OrderHistoryScreen(
 @Composable
 fun OrderCard(
     id: String,
+    customer: String,
     date: String,
     type: String,
     status: String,
@@ -132,9 +134,10 @@ fun OrderCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("N° DE COMMANDE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+            Column(modifier = Modifier.weight(1.2f)) {
+                Text("N° DE COMMANDE & CLIENT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                 Text(id, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF1A1A1A))
+                Text(customer, fontSize = 14.sp, color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
             }
 
             Column(modifier = Modifier.weight(1f)) {

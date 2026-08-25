@@ -23,7 +23,7 @@ class ProductRepository(private val supabaseClient: SupabaseClient) {
     suspend fun updateProduct(product: Products) = withContext(Dispatchers.Default) {
         supabaseClient.from(table).update(product) {
             filter {
-                eq("id", product.id)
+                eq("id", product.id?:"")
             }
         }
     }

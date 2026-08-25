@@ -84,7 +84,7 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
                     val fileName = product.image.substringAfterLast("/")
                     repository.deleteImage(fileName)
                  }
-                repository.deleteProduct(product.id)
+                repository.deleteProduct(product.id?:"")
                 loadProducts()
                 _error.value = null
             } catch (e: Exception) {

@@ -21,7 +21,7 @@ class ShopRepository(private val supabaseClient: SupabaseClient) {
     suspend fun updateShop(shop: Shop) = withContext(Dispatchers.Default) {
         supabaseClient.from(table).update(shop) {
             filter {
-                eq("id", shop.id)
+                eq("id", shop.id?:"")
             }
         }
     }

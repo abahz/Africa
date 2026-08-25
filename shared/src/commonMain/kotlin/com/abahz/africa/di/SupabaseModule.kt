@@ -15,8 +15,10 @@ import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.github.jan.supabase.storage.Storage
 import io.ktor.client.plugins.HttpTimeout
+import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -28,6 +30,11 @@ val supabaseModule = module {
             supabaseUrl ="https://rghcwouuqdhbxqljrang.supabase.co",
             supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnaGN3b3V1cWRoYnhxbGpyYW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NTc0MjIsImV4cCI6MjEwMjMzMzQyMn0.k63j-Ej8j8zmfJAqYAwqokugAf-CrEyR8SWjPm0VG1E"
         ) {
+            defaultSerializer = KotlinXSerializer(Json {
+                ignoreUnknownKeys = true
+                coerceInputValues = true
+                encodeDefaults = true
+            })
             httpConfig {
                 install(HttpTimeout) {
                     requestTimeoutMillis = 30000

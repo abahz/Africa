@@ -1,12 +1,16 @@
 package com.abahz.africa.ui
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,9 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.abahz.africa.model.Customer
+import com.abahz.africa.model.OrderItem
+import com.abahz.africa.model.Orders
 import com.abahz.africa.model.ProductType
 import com.abahz.africa.model.Products
 import com.abahz.africa.viewmodel.CustomerViewModel
+import com.abahz.africa.viewmodel.OrderViewModel
 import com.abahz.africa.viewmodel.ProductViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -41,7 +48,8 @@ fun HomeTopBar(
     onCartClick: () -> Unit,
     onProfileClick: () -> Unit,
     onMenuClick: () -> Unit,
-    isMobile: Boolean
+    isMobile: Boolean,
+    cartItemCount: Int
 ) {
     val categories = listOf("Tous", ProductType.PIZZA, ProductType.TACOS, ProductType.DESSERT, ProductType.BOIS)
     
@@ -71,7 +79,6 @@ fun HomeTopBar(
         },
         actions = {
             if (!isMobile) {
-                // Desktop Categories
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 32.dp)) {
                     categories.forEach { category ->
                         CategoryItem(
@@ -84,7 +91,17 @@ fun HomeTopBar(
             }
             
             IconButton(onClick = onCartClick) {
-                Icon(Icons.Default.ShoppingCart, contentDescription = "Cart", tint = Color.Black)
+                BadgedBox(
+                    badge = {
+                        if (cartItemCount > 0) {
+                            Badge(containerColor = Color(0xFFD32F2F)) {
+                                Text(cartItemCount.toString(), color = Color.White)
+                            }
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = "Cart", tint = Color.Black)
+                }
             }
             IconButton(onClick = onProfileClick) {
                 Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.Black)
@@ -126,18 +143,28 @@ fun CategoryItem(category: String, isSelected: Boolean, onClick: () -> Unit) {
 @Composable
 fun HomeScreen(
     productViewModel: ProductViewModel = koinViewModel(),
-    customerViewModel: CustomerViewModel = koinViewModel()
+    customerViewModel: CustomerViewModel = koinViewModel(),
+    orderViewModel: OrderViewModel = koinViewModel()
 ) {
     val products by productViewModel.products.collectAsState()
     val loading by productViewModel.loading.collectAsState()
+    val orderLoading by orderViewModel.loading.collectAsState()
+    val orderError by orderViewModel.error.collectAsState()
+    
     var selectedCategory by remember { mutableStateOf("Tous") }
     var isCartOpen by remember { mutableStateOf(false) }
     var isMenuOpen by remember { mutableStateOf(false) }
+
+    // Cart State
+    val cartItems = remember { mutableStateMapOf<Products, Int>() }
 
     // Customer Logic
     var showCustomerDialog by remember { mutableStateOf(false) }
     var currentCustomer by remember { mutableStateOf<Customer?>(null) }
     var pendingProduct by remember { mutableStateOf<Products?>(null) }
+    
+    // Checkout logic
+    var showCheckoutDetailsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
@@ -163,7 +190,8 @@ fun HomeScreen(
                     onCartClick = { isCartOpen = !isCartOpen },
                     onProfileClick = { showCustomerDialog = true },
                     onMenuClick = { isMenuOpen = true },
-                    isMobile = isMobile
+                    isMobile = isMobile,
+                    cartItemCount = cartItems.values.sum()
                 )
             }
         ) { padding ->
@@ -173,7 +201,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .weight(if (isCartOpen && !isMobile) 0.7f else 1f)
                             .fillMaxHeight()
-                            .background(Color.White)
+                            .background(Color(0xFFF8F9FA))
                     ) {
                         Column(
                             modifier = Modifier
@@ -206,6 +234,7 @@ fun HomeScreen(
                                                                     pendingProduct = product
                                                                     showCustomerDialog = true
                                                                 } else {
+                                                                    cartItems[product] = (cartItems[product] ?: 0) + 1
                                                                     isCartOpen = true
                                                                 }
                                                             }
@@ -220,14 +249,28 @@ fun HomeScreen(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(if (isMobile) 40.dp else 100.dp))
+                            Spacer(modifier = Modifier.height(if (isMobile) 40.dp else 80.dp))
                         }
                         
                         HomeFooter(isMobile = isMobile)
                     }
 
                     if (isCartOpen && !isMobile) {
-                        CartSidebar(onClose = { isCartOpen = false }, modifier = Modifier.weight(0.3f).fillMaxHeight())
+                        CartSidebar(
+                            cartItems = cartItems,
+                            isLoading = orderLoading,
+                            onUpdateQty = { product, delta ->
+                                val currentQty = cartItems[product] ?: 0
+                                val newQty = currentQty + delta
+                                if (newQty <= 0) cartItems.remove(product) else cartItems[product] = newQty
+                            },
+                            onRemoveItem = { cartItems.remove(it) },
+                            onCheckout = {
+                                showCheckoutDetailsDialog = true
+                            },
+                            onClose = { isCartOpen = false }, 
+                            modifier = Modifier.width(400.dp).fillMaxHeight()
+                        )
                     }
                 }
                 
@@ -249,12 +292,21 @@ fun HomeScreen(
 
                 // Full screen cart overlay (Mobile)
                 if (isCartOpen && isMobile) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f))) {
-                        CartSidebar(
-                            onClose = { isCartOpen = false }, 
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    CartSidebar(
+                        cartItems = cartItems,
+                        isLoading = orderLoading,
+                        onUpdateQty = { product, delta ->
+                            val currentQty = cartItems[product] ?: 0
+                            val newQty = currentQty + delta
+                            if (newQty <= 0) cartItems.remove(product) else cartItems[product] = newQty
+                        },
+                        onRemoveItem = { cartItems.remove(it) },
+                        onCheckout = {
+                            showCheckoutDetailsDialog = true
+                        },
+                        onClose = { isCartOpen = false }, 
+                        modifier = Modifier.fillMaxSize().background(Color.White)
+                    )
                 }
             }
         }
@@ -263,21 +315,109 @@ fun HomeScreen(
     if (showCustomerDialog) {
         CustomerRegistrationDialog(
             initialCustomer = currentCustomer,
+            customerViewModel = customerViewModel,
             onDismiss = { showCustomerDialog = false },
             onLoginOrRegister = { phone, password ->
                 customerViewModel.signInOrRegister(phone, password) { customer ->
                     if (customer != null) {
                         currentCustomer = customer
                         showCustomerDialog = false
-                        if (pendingProduct != null) {
+                        pendingProduct?.let {
+                            cartItems[it] = (cartItems[it] ?: 0) + 1
                             isCartOpen = true
-                            pendingProduct = null
                         }
+                        pendingProduct = null
                     }
                 }
             }
         )
     }
+    
+    if (showCheckoutDetailsDialog) {
+        CheckoutDetailsDialog(
+            initialName = currentCustomer?.name ?: "",
+            initialAddress = currentCustomer?.address ?: "",
+            onDismiss = { showCheckoutDetailsDialog = false },
+            onConfirm = { name, address ->
+                val updatedCustomer = currentCustomer?.copy(name = name, address = address) ?: Customer(name = name, address = address)
+                customerViewModel.updateCustomer(updatedCustomer)
+                currentCustomer = updatedCustomer
+                
+                val total = cartItems.entries.sumOf { it.key.price * it.value }
+                val order = Orders(
+                    customer = name,
+                    total = total,
+                    created = 0L // Timestamp logic removed
+                )
+                val items = cartItems.map { (product, qty) ->
+                    OrderItem(
+                        pid = product.id ?: "",
+                        qty = qty.toString(),
+                        created = 0L
+                    )
+                }
+                orderViewModel.placeOrder(order, items)
+                
+                cartItems.clear()
+                showCheckoutDetailsDialog = false
+                isCartOpen = false
+            }
+        )
+    }
+}
+
+@Composable
+fun CheckoutDetailsDialog(
+    initialName: String,
+    initialAddress: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var address by remember { mutableStateOf(initialAddress) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Détails de Livraison", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Veuillez confirmer vos coordonnées pour le suivi de votre commande.", fontSize = 14.sp, color = Color.Gray)
+                OutlinedTextField(
+                    value = name, 
+                    onValueChange = { name = it }, 
+                    label = { Text("Votre Nom") }, 
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Adresse de Livraison") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank() && address.isNotBlank()) {
+                        onConfirm(name, address)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Confirmer la Commande")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler", color = Color.Gray)
+            }
+        }
+    )
 }
 
 @Composable
@@ -335,16 +475,19 @@ fun CategoryDrawer(
 @Composable
 fun CustomerRegistrationDialog(
     initialCustomer: Customer? = null,
+    customerViewModel: CustomerViewModel,
     onDismiss: () -> Unit,
     onLoginOrRegister: (String, String) -> Unit
 ) {
     var phone by remember { mutableStateOf(initialCustomer?.phone ?: "") }
     var password by remember { mutableStateOf(initialCustomer?.password ?: "") }
+    val loading by customerViewModel.loading.collectAsState()
+    val error by customerViewModel.error.collectAsState()
 
     val isAlreadyLoggedIn = initialCustomer != null
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = if (!loading) onDismiss else ({}),
         title = { Text(if (isAlreadyLoggedIn) "Mon Compte" else "Connexion / Inscription", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -352,13 +495,27 @@ fun CustomerRegistrationDialog(
                     Text("Vous êtes connecté avec le numéro : ${initialCustomer.phone}", fontSize = 14.sp)
                 } else {
                     Text("Entrez votre numéro et mot de passe pour commander.", fontSize = 14.sp, color = Color.Gray)
-                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, modifier = Modifier.fillMaxWidth())
+                    
+                    if (error != null) {
+                        Text(text = error!!, color = Color.Red, fontSize = 12.sp)
+                    }
+
+                    OutlinedTextField(
+                        value = phone, 
+                        onValueChange = { phone = it }, 
+                        label = { Text("Téléphone") }, 
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !loading,
+                        shape = RoundedCornerShape(12.dp)
+                    )
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
                         label = { Text("Mot de passe") },
                         modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = PasswordVisualTransformation()
+                        visualTransformation = PasswordVisualTransformation(),
+                        enabled = !loading,
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             }
@@ -371,14 +528,20 @@ fun CustomerRegistrationDialog(
                             onLoginOrRegister(phone, password)
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    enabled = !loading,
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Valider")
+                    if (loading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                    } else {
+                        Text("Valider")
+                    }
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !loading) {
                 Text(if (isAlreadyLoggedIn) "Fermer" else "Annuler", color = Color.Gray)
             }
         }
@@ -386,56 +549,88 @@ fun CustomerRegistrationDialog(
 }
 
 @Composable
-fun CartSidebar(onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun CartSidebar(
+    cartItems: Map<Products, Int>,
+    isLoading: Boolean = false,
+    onUpdateQty: (Products, Int) -> Unit,
+    onRemoveItem: (Products) -> Unit,
+    onCheckout: () -> Unit,
+    onClose: () -> Unit, 
+    modifier: Modifier = Modifier
+) {
+    val total = cartItems.entries.sumOf { it.key.price * it.value }
+
     Surface(
         modifier = modifier,
         color = Color.White,
-        shadowElevation = 8.dp
+        shadowElevation = 16.dp
     ) {
-        Column(modifier = Modifier.padding(if (modifier == Modifier.fillMaxSize()) 16.dp else 24.dp).fillMaxHeight()) {
+        Column(modifier = Modifier.padding(20.dp).fillMaxHeight()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Votre Panier", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                IconButton(onClick = onClose) {
+                IconButton(onClick = onClose, enabled = !isLoading) {
                     Icon(Icons.Default.Close, contentDescription = "Close")
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Box(modifier = Modifier.weight(1f)) {
-                Text("Le panier est vide.", modifier = Modifier.align(Alignment.Center), color = Color.Gray)
+            if (cartItems.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Le panier est vide.", color = Color.Gray)
+                    }
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(cartItems.entries.toList()) { (product, qty) ->
+                        CartItemRow(product, qty, onUpdateQty, onRemoveItem, isEnabled = !isLoading)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Order Summary", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text("0 Fc", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
-                    }
+            if (cartItems.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("Récapitulatif", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Total", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("$total Fc", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                        }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = {},
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("PAYER MAINTENANT", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onCheckout,
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isLoading
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                            } else {
+                                Text("PASSER LA COMMANDE", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -444,10 +639,50 @@ fun CartSidebar(onClose: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun CartItemRow(
+    product: Products, 
+    qty: Int, 
+    onUpdateQty: (Products, Int) -> Unit,
+    onRemoveItem: (Products) -> Unit,
+    isEnabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF5F5F5))) {
+            if (product.image.isNotEmpty()) {
+                AsyncImage(model = product.image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else {
+                Icon(Icons.Default.Restaurant, contentDescription = null, modifier = Modifier.align(Alignment.Center), tint = Color.LightGray)
+            }
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(product.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${product.price} Fc", color = Color(0xFFD32F2F), fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onUpdateQty(product, -1) }, modifier = Modifier.size(24.dp), enabled = isEnabled) {
+                    Icon(Icons.Default.Remove, contentDescription = null, tint = Color.Gray)
+                }
+                Text(qty.toString(), modifier = Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold)
+                IconButton(onClick = { onUpdateQty(product, 1) }, modifier = Modifier.size(24.dp), enabled = isEnabled) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFFD32F2F))
+                }
+            }
+        }
+        IconButton(onClick = { onRemoveItem(product) }, enabled = isEnabled) {
+            Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color.LightGray)
+        }
+    }
+}
+
+@Composable
 fun ProductCard(product: Products, isMobile: Boolean, onAddClick: () -> Unit = {}) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -456,7 +691,7 @@ fun ProductCard(product: Products, isMobile: Boolean, onAddClick: () -> Unit = {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(if (isMobile) 160.dp else 220.dp)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .background(Color(0xFFF5F5F5))
             ) {
                 if (product.image.isNotEmpty()) {
@@ -474,12 +709,26 @@ fun ProductCard(product: Products, isMobile: Boolean, onAddClick: () -> Unit = {
                         tint = Color.LightGray
                     )
                 }
+                
+                Surface(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                    color = Color(0xFFD32F2F),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        "${product.price} Fc",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             Column(modifier = Modifier.padding(if (isMobile) 12.dp else 20.dp)) {
                 Text(
                     text = product.name,
-                    fontSize = if (isMobile) 16.sp else 22.sp,
+                    fontSize = if (isMobile) 16.sp else 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1A1A1A),
                     maxLines = 1,
@@ -487,7 +736,7 @@ fun ProductCard(product: Products, isMobile: Boolean, onAddClick: () -> Unit = {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = product.desc ?: "Délicieux plat africain.",
+                    text = product.desc ?: "Délicieux plat authentique.",
                     fontSize = 12.sp,
                     color = Color.Gray,
                     maxLines = 2,
@@ -496,31 +745,16 @@ fun ProductCard(product: Products, isMobile: Boolean, onAddClick: () -> Unit = {
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Row(
+                Button(
+                    onClick = onAddClick,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(8.dp)
                 ) {
-                    Text(
-                        "${product.price} Fc",
-                        fontSize = if (isMobile) 14.sp else 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    
-                    Button(
-                        onClick = onAddClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = if (isMobile) 8.dp else 16.dp, vertical = 4.dp),
-                        modifier = Modifier.height(if (isMobile) 32.dp else 40.dp)
-                    ) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(14.dp))
-                        if (!isMobile) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add", fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("AJOUTER", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -532,42 +766,45 @@ fun HomeFooter(isMobile: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF343A40))
-            .padding(vertical = if (isMobile) 32.dp else 60.dp, horizontal = if (isMobile) 16.dp else 48.dp)
+            .background(Color(0xFF212529))
+            .padding(vertical = if (isMobile) 40.dp else 60.dp, horizontal = if (isMobile) 24.dp else 60.dp)
     ) {
-        if (isMobile) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Restaurant, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (isMobile) Arrangement.Center else Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Restaurant, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Text("Mama Africa", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("© 2024 Mama Africa.", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FooterLink("Privacy")
-                    FooterLink("Terms")
-                    FooterLink("Support")
-                }
             }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Restaurant, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Mama Africa", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                }
-                
-                Text("© 2024 Mama Africa. Professional Epicurean Logistics.", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+            
+            if (!isMobile) {
+                Text("© 2024 Mama Africa. Logistics & Gastronomy.", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     FooterLink("Privacy Policy")
                     FooterLink("Terms of Service")
-                    FooterLink("Contact Support")
+                    FooterLink("Contact")
                 }
+            }
+        }
+        
+        if (isMobile) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("© 2024 Mama Africa.", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FooterLink("Privacy")
+                Spacer(modifier = Modifier.width(16.dp))
+                FooterLink("Terms")
+                Spacer(modifier = Modifier.width(16.dp))
+                FooterLink("Support")
             }
         }
     }
@@ -577,8 +814,8 @@ fun HomeFooter(isMobile: Boolean) {
 fun FooterLink(text: String) {
     Text(
         text = text,
-        color = Color.White.copy(alpha = 0.7f),
-        fontSize = 12.sp,
+        color = Color.White.copy(alpha = 0.6f),
+        fontSize = 13.sp,
         modifier = Modifier.clickable { }
     )
 }
