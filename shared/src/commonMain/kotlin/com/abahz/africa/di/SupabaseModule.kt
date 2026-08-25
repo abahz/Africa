@@ -33,7 +33,7 @@ val supabaseModule = module {
             defaultSerializer = KotlinXSerializer(Json {
                 ignoreUnknownKeys = true
                 coerceInputValues = true
-                encodeDefaults = true
+                encodeDefaults = false
             })
             httpConfig {
                 install(HttpTimeout) {

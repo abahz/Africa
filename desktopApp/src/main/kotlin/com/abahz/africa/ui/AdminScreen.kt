@@ -304,13 +304,15 @@ fun AddProductDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val now = System.currentTimeMillis()
                     val product = Products(
                         name = name,
                         desc = desc,
                         price = price.toLongOrNull() ?: 0,
                         qty = qty.toDoubleOrNull() ?: 0.0,
                         type = type,
-                        created = 0L // Simple timestamp logic handled elsewhere
+                        created = now,
+                        updated = now
                     )
                     onAdd(product, imageBytes)
                 },
