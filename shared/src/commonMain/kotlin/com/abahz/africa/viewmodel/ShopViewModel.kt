@@ -65,11 +65,19 @@ class ShopViewModel(private val repository: ShopRepository) : ViewModel() {
 
     fun addShop(shop: Shop) {
         viewModelScope.launch {
+            _loading.value = true
             try {
                 repository.insertShop(shop)
+                _error.value = null
                 loadShops()
             } catch (e: Exception) {
-                _error.value = e.message
+                val message = e.message ?: ""
+                _error.value = when {
+                    message.contains("23505") -> "Ce numéro de téléphone est déjà utilisé."
+                    else -> message
+                }
+            } finally {
+                _loading.value = false
             }
         }
     }

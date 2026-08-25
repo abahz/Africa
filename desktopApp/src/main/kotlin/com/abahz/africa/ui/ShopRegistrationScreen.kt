@@ -40,6 +40,9 @@ fun ShopRegistrationScreen(
     var idNat by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    
     var passwordVisible by remember { mutableStateOf(false) }
     var agreeToTerms by remember { mutableStateOf(false) }
 
@@ -115,6 +118,22 @@ fun ShopRegistrationScreen(
                         color = Color.Gray,
                         modifier = Modifier.padding(top = 12.dp, bottom = 32.dp)
                     )
+
+                    if (error != null) {
+                        Surface(
+                            color = Color(0xFFFFEBEE),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                        ) {
+                            Text(
+                                text = error!!,
+                                color = Color(0xFFD32F2F),
+                                modifier = Modifier.padding(16.dp),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
 
                     RegistrationField(
                         label = "Phone Number",
@@ -237,13 +256,18 @@ fun ShopRegistrationScreen(
                                 )
                             }
                         },
+                        enabled = !loading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                     ) {
-                        Text("Create Account", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        if (loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Create Account", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Row(
