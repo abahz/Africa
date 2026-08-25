@@ -14,7 +14,7 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,9 +23,33 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.abahz.africa.viewmodel.CustomerViewModel
+import com.abahz.africa.viewmodel.OrderViewModel
+import com.abahz.africa.viewmodel.ProductViewModel
+import com.abahz.africa.viewmodel.ShopViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    productViewModel: ProductViewModel = koinViewModel(),
+    customerViewModel: CustomerViewModel = koinViewModel(),
+    shopViewModel: ShopViewModel = koinViewModel(),
+    orderViewModel: OrderViewModel = koinViewModel()
+) {
+    val products by productViewModel.products.collectAsState()
+    val customers by customerViewModel.customers.collectAsState()
+    val shops by shopViewModel.shops.collectAsState()
+    val orders by orderViewModel.orders.collectAsState()
+
+    LaunchedEffect(Unit) {
+        productViewModel.loadProducts()
+        customerViewModel.loadCustomers()
+        shopViewModel.loadShops()
+        orderViewModel.loadOrders()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -53,10 +77,10 @@ fun DashboardScreen() {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            StatCard(modifier = Modifier.weight(1f), label = "RÉSERVATIONS", value = "2", icon = Icons.Outlined.CalendarMonth, iconBg = Color(0xFFFFEBEE), iconTint = Color(0xFFD32F2F))
-            StatCard(modifier = Modifier.weight(1f), label = "PLATS ACTIFS", value = "11", icon = Icons.Outlined.Restaurant, iconBg = Color(0xFFE3F2FD), iconTint = Color(0xFF1976D2))
-            StatCard(modifier = Modifier.weight(1f), label = "COMPTES CLIENTS", value = "2", icon = Icons.Outlined.Person, iconBg = Color(0xFFFFF3E0), iconTint = Color(0xFFF57C00))
-            StatCard(modifier = Modifier.weight(1f), label = "COMPTES ADMIN", value = "2", icon = Icons.Outlined.Group, iconBg = Color(0xFFF3E5F5), iconTint = Color(0xFF7B1FA2))
+            StatCard(modifier = Modifier.weight(1f), label = "COMMANDES", value = orders.size.toString(), icon = Icons.Outlined.CalendarMonth, iconBg = Color(0xFFFFEBEE), iconTint = Color(0xFFD32F2F))
+            StatCard(modifier = Modifier.weight(1f), label = "PLATS ACTIFS", value = products.size.toString(), icon = Icons.Outlined.Restaurant, iconBg = Color(0xFFE3F2FD), iconTint = Color(0xFF1976D2))
+            StatCard(modifier = Modifier.weight(1f), label = "COMPTES CLIENTS", value = customers.size.toString(), icon = Icons.Outlined.Person, iconBg = Color(0xFFFFF3E0), iconTint = Color(0xFFF57C00))
+            StatCard(modifier = Modifier.weight(1f), label = "ADMINISTRATEURS", value = shops.size.toString(), icon = Icons.Outlined.Group, iconBg = Color(0xFFF3E5F5), iconTint = Color(0xFF7B1FA2))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -94,10 +118,31 @@ fun DashboardScreen() {
                 
                 HorizontalDivider(color = Color(0xFFF5F5F5))
 
-                ActivityRow(Icons.Default.Description, "Commande #1042", "Table 4 - 3 Plats", "Aujourd'hui, 19:30", "EN COURS", Color(0xFFE3F2FD), Color(0xFF1976D2))
-                ActivityRow(Icons.Default.Event, "Réservation", "Fatou Ndiaye - 2 Pers.", "Aujourd'hui, 20:00", "CONFIRMÉ", Color(0xFFFFEBEE), Color(0xFFD32F2F))
-                ActivityRow(Icons.Default.Description, "Commande #1041", "À emporter - 1 Plat", "Aujourd'hui, 18:45", "TERMINÉ", Color(0xFFF5F5F5), Color.Gray)
-                ActivityRow(Icons.Default.Event, "Réservation", "Marie Curie - 4 Pers.", "Demain, 12:30", "CONFIRMÉ", Color(0xFFFFEBEE), Color(0xFFD32F2F))
+                if (orders.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("Aucune activité récente", color = Color.Gray)
+                    }
+                } else {
+                    // Show last 5 orders
+                    orders.sortedByDescending { it.created }.take(5).forEach { order ->
+                        val dateStr = try {
+                            val sdf = SimpleDateFormat("dd MMM, HH:mm", Locale.FRENCH)
+                            sdf.format(Date(order.created))
+                        } catch (e: Exception) {
+                            "Date inconnue"
+                        }
+
+                        ActivityRow(
+                            icon = Icons.Default.Description,
+                            type = "Commande #${order.id}",
+                            details = "${order.customer} - ${order.total} Fc",
+                            time = dateStr,
+                            status = "REÇU",
+                            statusBg = Color(0xFFE8F5E9),
+                            statusColor = Color(0xFF2E7D32)
+                        )
+                    }
+                }
             }
         }
     }

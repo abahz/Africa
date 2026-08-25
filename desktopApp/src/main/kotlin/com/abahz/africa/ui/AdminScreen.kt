@@ -68,6 +68,7 @@ fun AdminScreen(
                     "Menu Management" -> MenuManagementScreen()
                     "Orders" -> OrderHistoryScreen()
                     "User Management" -> UserManagementScreen()
+                    "Settings" -> SettingsScreen()
                     "Reservations" -> PlaceholderScreen("Reservations")
                     else -> DashboardScreen()
                 }
@@ -155,7 +156,7 @@ fun Sidebar(
             Spacer(modifier = Modifier.weight(1f))
 
             // Bottom Items
-            NavItem(title = "Settings", icon = Icons.Default.Settings, isSelected = false, onClick = {})
+            NavItem(title = "Settings", icon = Icons.Default.Settings, isSelected = selectedItem == "Settings", onClick = { onItemSelected("Settings") })
             NavItem(title = "Logout", icon = Icons.AutoMirrored.Filled.Logout, isSelected = false, onClick = onLogout)
         }
     }

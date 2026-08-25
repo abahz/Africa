@@ -3,14 +3,13 @@ package com.abahz.africa.ui.admin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,16 +20,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abahz.africa.viewmodel.OrderViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun OrderHistoryScreen(
     orderViewModel: OrderViewModel = koinViewModel()
 ) {
+    val orders by orderViewModel.orders.collectAsState()
+    val loading by orderViewModel.loading.collectAsState()
+
+    LaunchedEffect(Unit) {
+        orderViewModel.loadOrders()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(40.dp)
-            .verticalScroll(rememberScrollState())
     ) {
         // Header
         Row(
@@ -54,22 +61,52 @@ fun OrderHistoryScreen(
             }
 
             Button(
-                onClick = { },
+                onClick = { orderViewModel.loadOrders() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Color.Black),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Filtrer")
+                Text("Actualiser")
             }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Order Cards
-        OrderCard("#ORD-8924", "12 Oct 2024", "Livraison", "Terminé", "145.500 Fc", Color(0xFFE8F5E9), Color(0xFF2E7D32), Icons.Default.DirectionsBike)
-        OrderCard("#ORD-8941", "Aujourd'hui", "À emporter", "Ordered", "89.000 Fc", Color(0xFFFFEBEE), Color(0xFFD32F2F), Icons.Default.ShoppingBag)
-        OrderCard("#ORD-8810", "28 Sep 2024", "Livraison", "Terminé", "210.000 Fc", Color(0xFFE8F5E9), Color(0xFF2E7D32), Icons.Default.DirectionsBike)
+        if (loading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFFD32F2F))
+            }
+        } else if (orders.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Aucune commande trouvée", color = Color.Gray)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(orders.sortedByDescending { it.created }) { order ->
+                    val dateStr = try {
+                        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.FRENCH)
+                        sdf.format(Date(order.created))
+                    } catch (e: Exception) {
+                        "Date inconnue"
+                    }
+
+                    OrderCard(
+                        id = "#ORD-${order.id}",
+                        date = dateStr,
+                        type = if (order.fid > 0) "Livraison" else "À emporter",
+                        status = "Reçu", // Real status logic could be added to Model later
+                        amount = "${order.total} Fc",
+                        statusBg = Color(0xFFE8F5E9),
+                        statusTxt = Color(0xFF2E7D32),
+                        typeIcon = if (order.fid > 0) Icons.Default.DirectionsBike else Icons.Default.ShoppingBag
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -85,7 +122,7 @@ fun OrderCard(
     typeIcon: ImageVector
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -130,9 +167,6 @@ fun OrderCard(
                 Row(modifier = Modifier.padding(top = 8.dp)) {
                     IconButton(onClick = {}) {
                         Icon(Icons.Default.Visibility, contentDescription = null, tint = Color.Gray)
-                    }
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color.Gray)
                     }
                 }
             }
