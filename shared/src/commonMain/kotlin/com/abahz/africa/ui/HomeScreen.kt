@@ -130,27 +130,9 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 80.dp, horizontal = 24.dp),
+                        .padding(vertical = 32.dp, horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Découvrez notre Carte",
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A1A),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "Explore a curated selection of culinary delights designed for the modern epicurean,\nreimagined with the warmth and spirit of Mama Africa.",
-                        fontSize = 18.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 28.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(48.dp))
-
                     // Category Pills
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
